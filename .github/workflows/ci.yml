@@ -40,6 +40,15 @@ jobs:
       - name: Duneバージョンの確認
         run: opam exec -- dune --version
 
+      - name: OCamlFormatの導入
+        run: opam install ocamlformat.0.29.0 --yes
+
+      - name: OCamlの整形チェック
+        run: opam exec -- dune build @fmt
+
+      - name: OCamlの型・警告チェック
+        run: opam exec -- dune build --profile dev @check
+
       - name: ビルド
         run: opam exec -- dune build @install
 
