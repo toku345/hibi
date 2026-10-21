@@ -1,6 +1,12 @@
 (test
  (name test_hibi)
+ (modules test_hibi)
  (libraries hibi))
+
+(test
+ (name record_properties)
+ (modules record_properties)
+ (libraries hibi qcheck-core qcheck-core.runner))
 
 (rule
  (alias runtest)

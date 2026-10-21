@@ -20,10 +20,12 @@ let started_at () =
   let time = Ptime_clock.now () in
   match Ptime_clock.current_tz_offset_s () with
   | None -> Error "ローカル日時のオフセットを取得できません。"
-  | Some tz_offset_s -> Record.timestamp time ~tz_offset_s
+  | Some tz_offset_s ->
+      let* _ = Record.timestamp time ~tz_offset_s in
+      Ok (time, tz_offset_s)
 
 let collect_record () =
-  let* recorded_at = started_at () in
+  let* recorded_at, tz_offset_s = started_at () in
   let score =
     ask "今日の仕事を終えて、気持ちは？（1〜5）"
       [ "1＝とても消耗した、3＝どちらともいえない、5＝とても充実した"; "成果や能力の自己採点ではありません。" ]
@@ -40,17 +42,19 @@ let collect_record () =
   let next_step =
     ask "明日、少し変えてみたいことは？" [ "あればでOK。小さな相談や試みでも十分。" ] Record.text_of_line
   in
-  Ok Record.{ recorded_at; score; accomplishments; moments; next_step }
+  Record.create ~recorded_at ~tz_offset_s ~score ~accomplishments ~moments
+    ~next_step
 
 let run () =
   let* record = collect_record () in
-  if Record.is_empty record then (
-    print_endline "全問未回答のため、保存しませんでした。";
-    Ok ())
-  else
-    let* dir = Storage.log_directory () in
-    Storage.save ~dir record ~report:(fun path ->
-        Printf.printf "保存しました: %s\n%!" path)
+  match record with
+  | None ->
+      print_endline "全問未回答のため、保存しませんでした。";
+      Ok ()
+  | Some record ->
+      let* dir = Storage.log_directory () in
+      Storage.save ~dir record ~report:(fun path ->
+          Printf.printf "保存しました: %s\n%!" path)
 
 let () =
   Sys.catch_break true;

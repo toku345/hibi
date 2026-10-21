@@ -17,3 +17,6 @@ credentials/
 *.pem
 *.key
 
+# Independent Sites source checkout
+/sites/hibi-architecture/
+

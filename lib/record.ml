@@ -53,10 +53,24 @@ let text_of_line line =
   | Ok "" -> Ok None
   | Ok _ -> Ok (Some line)
 
-let is_empty record =
-  record.score = None
-  && record.accomplishments = None
-  && record.moments = None && record.next_step = None
+let create ~recorded_at ~tz_offset_s ~score ~accomplishments ~moments ~next_step
+    =
+  let ( let* ) = Result.bind in
+  let* recorded_at = timestamp recorded_at ~tz_offset_s in
+  let* score =
+    match score with
+    | None -> Ok None
+    | Some value when value >= 1 && value <= 5 -> Ok score
+    | Some _ -> Error "1〜5の整数を入力してください（空Enterでスキップ）。"
+  in
+  let text = function None -> Ok None | Some line -> text_of_line line in
+  let* accomplishments = text accomplishments in
+  let* moments = text moments in
+  let* next_step = text next_step in
+  if
+    score = None && accomplishments = None && moments = None && next_step = None
+  then Ok None
+  else Ok (Some { recorded_at; score; accomplishments; moments; next_step })
 
 let to_json record =
   let text = function None -> `Null | Some value -> `String value in
