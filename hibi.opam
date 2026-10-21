@@ -12,6 +12,7 @@ depends: [
   "lwt"
   "react"
   "zed"
+  "conf-python-3" {with-test}
   "odoc" {with-doc}
 ]
 build: [

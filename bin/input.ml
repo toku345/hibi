@@ -66,5 +66,6 @@ let read_terminal () =
 
 let read_line () =
   flush stdout;
-  if Unix.isatty Unix.stdin && Unix.isatty Unix.stdout then read_terminal ()
-  else read_pipe ()
+  if not (Unix.isatty Unix.stdin) then read_pipe ()
+  else if Unix.isatty Unix.stdout then read_terminal ()
+  else raise (Sys_error "端末から入力する場合、標準出力をパイプやファイルに変更できません。保存していません。")

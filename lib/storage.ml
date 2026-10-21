@@ -12,12 +12,23 @@ let log_directory () =
 let unix_error error operation path =
   Printf.sprintf "%s (%s): %s" path operation (Unix.error_message error)
 
+let has_kind path kind =
+  try (Unix.stat path).st_kind = kind
+  with Unix.Unix_error (Unix.ENOENT, _, _) -> false
+
+let is_bare_repository dir =
+  has_kind (Filename.concat dir "HEAD") Unix.S_REG
+  && has_kind (Filename.concat dir "objects") Unix.S_DIR
+  && has_kind (Filename.concat dir "refs") Unix.S_DIR
+
 let rec outside_git dir =
   match Unix.lstat (Filename.concat dir ".git") with
   | _ -> Error ("Gitリポジトリの外を保存先に指定してください: " ^ dir)
   | exception Unix.Unix_error (Unix.ENOENT, _, _) ->
-      let parent = Filename.dirname dir in
-      if parent = dir then Ok () else outside_git parent
+      if is_bare_repository dir then Error ("Gitリポジトリの外を保存先に指定してください: " ^ dir)
+      else
+        let parent = Filename.dirname dir in
+        if parent = dir then Ok () else outside_git parent
 
 let checked_directory path =
   let dir = Unix.realpath path in

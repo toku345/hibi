@@ -177,6 +177,42 @@ let test_git_guard () =
             (not (Sys.file_exists (Filename.concat repo "new")))))
     [ true; false ]
 
+let test_bare_git_guard () =
+  with_directory (fun root ->
+      let repo = Filename.concat root "bare.git" in
+      Unix.mkdir repo 0o700;
+      let head = Filename.concat repo "HEAD" in
+      write head "ref: refs/heads/main\n";
+      Unix.mkdir (Filename.concat repo "objects") 0o700;
+      Unix.mkdir (Filename.concat repo "refs") 0o700;
+      let link = Filename.concat root "link" in
+      Unix.symlink repo link;
+      let original =
+        Array.to_list (Sys.readdir repo) |> List.sort String.compare
+      in
+      List.iter
+        (fun dir ->
+          let reported = ref false in
+          check "bare repository rejected"
+            (is_error
+               (Storage.save ~dir record ~report:(fun _ -> reported := true)));
+          check "bare rejection never reports success" (not !reported);
+          check "bare repository unchanged"
+            (Array.to_list (Sys.readdir repo)
+            |> List.sort String.compare = original);
+          check "bare HEAD unchanged" (read head = "ref: refs/heads/main\n"))
+        [
+          repo;
+          Filename.concat repo "objects";
+          Filename.concat repo "new/deep";
+          Filename.concat link "new";
+        ];
+      let ordinary = Filename.concat root "ordinary" in
+      Unix.mkdir ordinary 0o700;
+      write (Filename.concat ordinary "HEAD") "ordinary file";
+      check "HEAD alone does not reject an ordinary directory"
+        (Result.is_ok (save ordinary record)))
+
 let test_cleanup () =
   with_directory (fun dir ->
       let result =
@@ -205,5 +241,6 @@ let () =
   test_record ();
   test_storage ();
   test_git_guard ();
+  test_bare_git_guard ();
   test_cleanup ();
   Printf.printf "hibi: %d checks passed\n" !checks

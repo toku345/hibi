@@ -11,6 +11,10 @@ import signal
 import struct
 import subprocess
 import sys
+
+if sys.version_info < (3, 9):
+    sys.exit("端末入力テストにはPython 3.9以上が必要です。")
+
 import tempfile
 import termios
 import time
@@ -131,6 +135,32 @@ def edit_case(root, data, expected, model="xterm-256color", **env):
 
 
 def run(root):
+    for mode in ["pipe", "file"]:
+        folder = root / f"redirect-{mode}"
+        folder.mkdir()
+        directory = folder / "logs"
+        master, slave = pty.openpty()
+        try:
+            original = attributes(slave)
+            os.write(master, b"4\npartial\x04\n\n\n")
+            with tempfile.TemporaryFile() as redirected:
+                result = subprocess.run(
+                    [BINARY], stdin=slave,
+                    stdout=subprocess.PIPE if mode == "pipe" else redirected,
+                    stderr=subprocess.PIPE,
+                    env=dict(os.environ, HIBI_LOG_DIR=str(directory)), timeout=10)
+                redirected.seek(0)
+                output = result.stdout if mode == "pipe" else redirected.read()
+            assert result.returncode == 1, (output, result.stderr)
+            assert "標準出力をパイプやファイルに変更できません".encode() in result.stderr
+            assert "保存しました:".encode() not in output
+            assert not directory.exists()
+            assert attributes(slave) == original, "terminal settings changed"
+        finally:
+            os.close(master)
+            os.close(slave)
+        print("OK: terminal input with redirected stdout rejected:", mode)
+
     cases = [
         ("Ctrl-H Japanese", "日本語".encode() + b"\x08\n", "日本"),
         ("Delete Japanese", "日本語".encode() + b"\x7f\n", "日本"),

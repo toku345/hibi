@@ -15,4 +15,5 @@
   (lambda-term (>= 3.4.1))
   lwt
   react
-  zed))
+  zed
+  (conf-python-3 :with-test)))
