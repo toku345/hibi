@@ -97,3 +97,19 @@ opam exec -- dune runtest
 ```
 
 入力の検証、JSON、日時、保存先の作成、衝突時の既存データ保持、保存失敗・キャンセル時の後始末を検証します。入力テストでは擬似端末を使い、日本語の編集、Ctrl+C・Ctrl+D・SIGINTによる中断、終了後の端末設定の復元も確認します。テストには一時ディレクトリと架空の回答だけを使います。
+
+### CI
+
+GitHub Actionsでは、PRの作成・更新・再オープン時と`main`へのpush時に、Ubuntu 24.04・OCaml 5.4.1でビルドとテストを実行します。Python 3はランナー付属のものを使用します。
+
+CIに対応するローカル実行コマンドは次のとおりです。
+
+```sh
+opam install . --deps-only --with-test --yes
+opam exec -- dune build @install
+opam exec -- dune runtest --force
+```
+
+`dune runtest --force`で、データ・保存処理のOCamlテストと、PythonのPTYによる端末入力の回帰テストを毎回実行します。実際の振り返りログや追加のsecretは不要です。
+
+キャッシュは`setup-ocaml`の標準機能だけを利用し、Duneのビルドキャッシュは有効化しません。使用するActionはリリースに対応するコミットSHAに固定し、手動で更新します。
