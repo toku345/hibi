@@ -17,6 +17,6 @@ credentials/
 *.pem
 *.key
 
-# Independent Sites checkout (the HTML source lives in docs/)
+# Independent Sites source checkout
 /sites/hibi-architecture/
 
