@@ -19,4 +19,5 @@
   lwt
   react
   zed
+  (qcheck-core (and :with-test (>= 0.91)))
   (conf-python-3 :with-test)))
