@@ -1,3 +1,9 @@
 (test
  (name test_hibi)
  (libraries hibi))
+
+(rule
+ (alias runtest)
+ (deps terminal_input_test.py)
+ (action
+  (run python3 %{dep:terminal_input_test.py} %{exe:../bin/main.exe})))

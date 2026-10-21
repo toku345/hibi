@@ -4,23 +4,16 @@
 
 (generate_opam_files true)
 
-(source
- (github username/reponame))
-
-(authors "Author Name <author@example.com>")
-
-(maintainers "Maintainer Name <maintainer@example.com>")
-
-(license LICENSE)
-
-(documentation https://url/to/documentation)
-
 (package
  (name hibi)
- (synopsis "A short synopsis")
- (description "A longer description")
- (depends ocaml)
- (tags
-  ("add topics" "to describe" your project)))
-
-; See the complete stanza docs at https://dune.readthedocs.io/en/stable/reference/dune-project/index.html
+ (synopsis "A small CLI for reflecting on your working day")
+ (description "Answer four short questions and keep a private local JSON record.")
+ (depends
+  (ocaml (>= 4.14))
+  yojson
+  ptime
+  (lambda-term (>= 3.4.1))
+  lwt
+  react
+  zed
+  (conf-python-3 :with-test)))
