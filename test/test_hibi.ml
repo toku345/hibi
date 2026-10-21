@@ -36,23 +36,23 @@ let read path =
     ~finally:(fun () -> close_in_noerr channel)
     (fun () -> really_input_string channel (in_channel_length channel))
 
-let empty =
-  Record.
-    {
-      recorded_at = "2026-10-21T18:00:00+09:00";
-      score = None;
-      accomplishments = None;
-      moments = None;
-      next_step = None;
-    }
+let fixture_time =
+  Option.get (Ptime.of_date_time ((2026, 10, 21), ((18, 0, 0), 32400)))
+
+let create ?(recorded_at = fixture_time) ?(tz_offset_s = 32400) ?(score = None)
+    ?(accomplishments = None) ?(moments = None) ?(next_step = None) () =
+  Record.create ~recorded_at ~tz_offset_s ~score ~accomplishments ~moments
+    ~next_step
+
+let get_record result =
+  match get result with
+  | Some record -> record
+  | None -> failwith "expected a nonempty record"
 
 let record =
-  {
-    empty with
-    score = Some 4;
-    accomplishments = Some "相談に乗った。\"ありがとう\"と聞けた。";
-    moments = Some "案A \\ 案B\tを比較した";
-  }
+  get_record
+    (create ~score:(Some 4) ~accomplishments:(Some "相談に乗った。\"ありがとう\"と聞けた。")
+       ~moments:(Some "案A \\ 案B\tを比較した") ())
 
 let save dir record =
   let path = ref "" in
@@ -78,10 +78,9 @@ let test_record () =
     (Record.text_of_line "　 日本語 \"引用\"  " = Ok (Some "　 日本語 \"引用\"  "));
   check "reject invalid UTF-8 text" (is_error (Record.text_of_line "\255"));
   check "reject invalid UTF-8 score" (is_error (Record.score_of_line "\255"));
-  check "empty record" (Record.is_empty empty);
-  check "nonempty record" (not (Record.is_empty record));
+  check "empty answers produce no record" (create () = Ok None);
   check "only next step"
-    (not (Record.is_empty { empty with next_step = Some "相談" }));
+    ((get_record (create ~next_step:(Some "相談") ())).next_step = Some "相談");
   let json = Record.to_json record in
   check "JSON round trip"
     (Yojson.Basic.from_string (Yojson.Basic.to_string json) = json);
@@ -106,6 +105,79 @@ let test_record () =
     (is_error (Record.timestamp epoch ~tz_offset_s:1));
   check "out of range offset rejected"
     (is_error (Record.timestamp epoch ~tz_offset_s:86400))
+
+let test_create () =
+  for mask = 0 to 15 do
+    let present bit value = if mask land bit = 0 then None else Some value in
+    let score = present 1 4 in
+    let accomplishments = present 2 "達成" in
+    let moments = present 4 "場面" in
+    let next_step = present 8 "相談" in
+    match get (create ~score ~accomplishments ~moments ~next_step ()) with
+    | None -> check "only all absent is empty" (mask = 0)
+    | Some record ->
+        check "nonempty mask" (mask <> 0);
+        check "constructor preserves answers"
+          (record.score = score
+          && record.accomplishments = accomplishments
+          && record.moments = moments
+          && record.next_step = next_step);
+        check "constructor preserves start time"
+          (record.recorded_at = "2026-10-21T18:00:00+09:00")
+  done;
+  List.iter
+    (fun score ->
+      check "constructor rejects invalid score"
+        (is_error (create ~score:(Some score) ~next_step:(Some "回答あり") ())))
+    [ min_int; -1; 0; 6; 99; max_int ];
+  List.iter
+    (fun blank ->
+      check "constructor normalizes blank answers"
+        (create ~accomplishments:(Some blank) ~moments:(Some blank)
+           ~next_step:(Some blank) ()
+        = Ok None);
+      let record =
+        get_record
+          (create ~score:(Some 1) ~accomplishments:(Some blank)
+             ~moments:(Some blank) ~next_step:(Some blank) ())
+      in
+      check "blank text stays absent with a score"
+        (record.accomplishments = None
+        && record.moments = None && record.next_step = None))
+    [ ""; " \t\r"; "　"; "\194\160\226\128\131" ];
+  List.iter
+    (fun score ->
+      List.iter
+        (fun (accomplishments, moments, next_step) ->
+          check "constructor rejects invalid UTF-8 in every field"
+            (is_error (create ~score ~accomplishments ~moments ~next_step ())))
+        [
+          (Some "\255", None, None);
+          (None, Some "\255", None);
+          (None, None, Some "\255");
+        ])
+    [ None; Some 4 ];
+  let text = "　 日本語 \"引用\" \\ \n\t\000 " in
+  let record = get_record (create ~moments:(Some text) ()) in
+  check "constructor preserves nonblank text exactly"
+    (record.moments = Some text);
+  List.iter
+    (fun tz_offset_s ->
+      check "constructor rejects invalid offset even without answers"
+        (is_error (create ~tz_offset_s ())))
+    [ min_int; -86400; -1; 1; 86400; max_int ];
+  let minimum =
+    get_record
+      (create ~recorded_at:Ptime.min ~tz_offset_s:(-60) ~score:(Some 1) ())
+  in
+  let maximum =
+    get_record
+      (create ~recorded_at:Ptime.max ~tz_offset_s:60 ~score:(Some 1) ())
+  in
+  check "minimum local date preserves existing UTC fallback"
+    (minimum.recorded_at = "0000-01-01T00:00:00Z");
+  check "maximum local date preserves existing UTC fallback"
+    (maximum.recorded_at = "9999-12-31T23:59:59Z")
 
 let test_storage () =
   with_directory (fun root ->
@@ -239,6 +311,7 @@ let test_cleanup () =
 
 let () =
   test_record ();
+  test_create ();
   test_storage ();
   test_git_guard ();
   test_bare_git_guard ();
