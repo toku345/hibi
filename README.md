@@ -106,6 +106,9 @@ CIに対応するローカル実行コマンドは次のとおりです。
 
 ```sh
 opam install . --deps-only --with-test --yes
+opam install ocamlformat.0.29.0 --yes
+opam exec -- dune build @fmt
+opam exec -- dune build --profile dev @check
 opam exec -- dune build @install
 opam exec -- dune runtest --force
 ```
@@ -113,3 +116,27 @@ opam exec -- dune runtest --force
 `dune runtest --force`で、データ・保存処理のOCamlテストと、PythonのPTYによる端末入力の回帰テストを毎回実行します。実際の振り返りログや追加のsecretは不要です。
 
 キャッシュは`setup-ocaml`の標準機能だけを利用し、Duneのビルドキャッシュは有効化しません。使用するActionはリリースに対応するコミットSHAに固定し、手動で更新します。
+
+## 整形と静的チェック
+
+OCamlの整形にはOCamlFormat 0.29.0を使用し、`.ocamlformat`でバージョンと`default`プロファイルを固定しています。開発用のopam switchを確認してから導入してください。CLIの実行には不要です。
+
+```sh
+opam switch show
+opam install ocamlformat.0.29.0 --yes
+```
+
+`.ml`・`.mli`の整形と、ファイルを書き換えない検査は次のコマンドで行います。CIでも検査を実行し、整形が必要な場合は失敗します。
+
+```sh
+opam exec -- dune fmt
+opam exec -- dune build @fmt
+```
+
+lintにはOCamlコンパイラの型検査と警告を使用します。Dune標準の設定を継承し、開発用の`dev`プロファイルで未使用の引数・宣言、不正なドキュメントコメント、未使用のmoduleなどの警告（27、32〜39、50、60）を追加しています。有効な警告はエラーとして扱います。専用のlintツールは追加していません。
+
+```sh
+opam exec -- dune build --profile dev @check
+```
+
+CIでも同じコマンドを実行します。`@check`はリンクを省いた型・警告の検査で、ビルドやテストは別途実行します。今回の整形・静的チェックの対象はOCamlのみです。

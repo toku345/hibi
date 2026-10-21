@@ -2,6 +2,9 @@
 
 (name hibi)
 
+(formatting
+ (enabled_for ocaml))
+
 (generate_opam_files true)
 
 (package
