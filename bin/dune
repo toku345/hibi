@@ -1,4 +1,4 @@
 (executable
  (public_name hibi)
  (name main)
- (libraries hibi))
+ (libraries hibi ptime.clock.os lambda-term lwt.unix react zed))
