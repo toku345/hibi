@@ -5,7 +5,7 @@ let fixture_time = Ptime.epoch
 
 let create ?(recorded_at = fixture_time) ?(tz_offset_s = 0)
     (score, accomplishments, moments, next_step) =
-  Record.create ~recorded_at ~tz_offset_s ~score ~accomplishments ~moments
+  Entry.create ~recorded_at ~tz_offset_s ~score ~accomplishments ~moments
     ~next_step
 
 let unicode =
@@ -43,21 +43,21 @@ let print_answers (score, accomplishments, moments, next_step) =
 
 let property name gen print = Test.make ~name ~count:1000 ~print gen
 
-let valid_record =
+let valid_entry =
   property "create preserves valid nonempty answers" valid_answers print_answers
     (fun ((score, accomplishments, moments, next_step) as answers) ->
       match create answers with
-      | Ok (Some record) ->
-          record.score = score
-          && record.accomplishments = accomplishments
-          && record.moments = moments
-          && record.next_step = next_step
-          && (match record.score with
+      | Ok (Some entry) ->
+          entry.score = score
+          && entry.accomplishments = accomplishments
+          && entry.moments = moments
+          && entry.next_step = next_step
+          && (match entry.score with
             | None -> true
             | Some n -> n >= 1 && n <= 5)
-          && (record.score <> None
-             || record.accomplishments <> None
-             || record.moments <> None || record.next_step <> None)
+          && (entry.score <> None
+             || entry.accomplishments <> None
+             || entry.moments <> None || entry.next_step <> None)
       | Ok None | Error _ -> false)
 
 let blank_answers =
@@ -71,18 +71,18 @@ let blank_answers =
       (None, accomplishments, moments, next_step))
     (Gen.option blank) (Gen.option blank) (Gen.option blank)
 
-let empty_record =
-  property "absent or blank answers produce no record" blank_answers
+let empty_entry =
+  property "absent or blank answers produce no entry" blank_answers
     print_answers (fun answers -> create answers = Ok None)
 
 let blank_normalization =
   property "blank text becomes absent even with a score" blank_answers
     print_answers (fun (_, accomplishments, moments, next_step) ->
       match create (Some 4, accomplishments, moments, next_step) with
-      | Ok (Some record) ->
-          record.score = Some 4
-          && record.accomplishments = None
-          && record.moments = None && record.next_step = None
+      | Ok (Some entry) ->
+          entry.score = Some 4
+          && entry.accomplishments = None
+          && entry.moments = None && entry.next_step = None
       | Ok None | Error _ -> false)
 
 (* 反例を縮小しても不正性を保つ。スコアの区間は1〜5を含まず、UTF-8はmapで必ず不正なバイトを付加する。 *)
@@ -110,10 +110,10 @@ let json_round_trip =
     print_answers (fun (score, accomplishments, moments, next_step) ->
       match create (score, accomplishments, moments, next_step) with
       | Error _ | Ok None -> false
-      | Ok (Some record) ->
+      | Ok (Some entry) ->
           let json =
             Yojson.Basic.from_string
-              (Yojson.Basic.pretty_to_string (Record.to_json record))
+              (Yojson.Basic.pretty_to_string (Entry.to_json entry))
           in
           let text = function None -> `Null | Some value -> `String value in
           json
@@ -144,12 +144,12 @@ let timestamp_round_trip =
       let tz_offset_s = minutes * 60 in
       match create ~recorded_at ~tz_offset_s (Some 3, None, None, None) with
       | Error _ | Ok None -> false
-      | Ok (Some record) -> (
-          match Ptime.of_rfc3339 ~strict:true record.recorded_at with
+      | Ok (Some entry) -> (
+          match Ptime.of_rfc3339 ~strict:true entry.recorded_at with
           | Ok (time, Some offset, count) ->
               Ptime.equal time (Ptime.truncate ~frac_s:0 recorded_at)
               && offset = tz_offset_s
-              && count = String.length record.recorded_at
+              && count = String.length entry.recorded_at
           | Ok (_, None, _) | Error _ -> false))
 
 let invalid_offset =
@@ -169,8 +169,8 @@ let invalid_offset =
 let () =
   QCheck_base_runner.run_tests_main
     [
-      valid_record;
-      empty_record;
+      valid_entry;
+      empty_entry;
       blank_normalization;
       invalid_score;
       invalid_utf8;

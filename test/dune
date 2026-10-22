@@ -4,8 +4,8 @@
  (libraries hibi))
 
 (test
- (name record_properties)
- (modules record_properties)
+ (name entry_properties)
+ (modules entry_properties)
  (libraries hibi qcheck-core qcheck-core.runner))
 
 (rule

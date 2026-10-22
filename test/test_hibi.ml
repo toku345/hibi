@@ -41,47 +41,47 @@ let fixture_time =
 
 let create ?(recorded_at = fixture_time) ?(tz_offset_s = 32400) ?(score = None)
     ?(accomplishments = None) ?(moments = None) ?(next_step = None) () =
-  Record.create ~recorded_at ~tz_offset_s ~score ~accomplishments ~moments
+  Entry.create ~recorded_at ~tz_offset_s ~score ~accomplishments ~moments
     ~next_step
 
-let get_record result =
+let get_entry result =
   match get result with
-  | Some record -> record
-  | None -> failwith "expected a nonempty record"
+  | Some entry -> entry
+  | None -> failwith "expected a nonempty entry"
 
-let record =
-  get_record
+let entry =
+  get_entry
     (create ~score:(Some 4) ~accomplishments:(Some "相談に乗った。\"ありがとう\"と聞けた。")
        ~moments:(Some "案A \\ 案B\tを比較した") ())
 
-let save dir record =
+let save dir entry =
   let path = ref "" in
-  let result = Storage.save ~dir record ~report:(fun value -> path := value) in
+  let result = Storage.save ~dir entry ~report:(fun value -> path := value) in
   Result.map (fun () -> !path) result
 
-let test_record () =
+let test_entry () =
   List.iter
     (fun score ->
       check "valid score"
-        (Record.score_of_line (string_of_int score) = Ok (Some score)))
+        (Entry.score_of_line (string_of_int score) = Ok (Some score)))
     [ 1; 2; 3; 4; 5 ];
   List.iter
-    (fun line -> check "invalid score" (is_error (Record.score_of_line line)))
+    (fun line -> check "invalid score" (is_error (Entry.score_of_line line)))
     [ "0"; "6"; "-1"; "+1"; "01"; "0x1"; "1.0"; "1 2"; "１"; "abc" ];
   List.iter
     (fun line ->
-      check "blank score" (Record.score_of_line line = Ok None);
-      check "blank text" (Record.text_of_line line = Ok None))
+      check "blank score" (Entry.score_of_line line = Ok None);
+      check "blank text" (Entry.text_of_line line = Ok None))
     [ ""; " \t\r"; "　"; "\194\160\226\128\131" ];
-  check "score padding" (Record.score_of_line "　 3\t　" = Ok (Some 3));
+  check "score padding" (Entry.score_of_line "　 3\t　" = Ok (Some 3));
   check "preserve nonblank text"
-    (Record.text_of_line "　 日本語 \"引用\"  " = Ok (Some "　 日本語 \"引用\"  "));
-  check "reject invalid UTF-8 text" (is_error (Record.text_of_line "\255"));
-  check "reject invalid UTF-8 score" (is_error (Record.score_of_line "\255"));
-  check "empty answers produce no record" (create () = Ok None);
+    (Entry.text_of_line "　 日本語 \"引用\"  " = Ok (Some "　 日本語 \"引用\"  "));
+  check "reject invalid UTF-8 text" (is_error (Entry.text_of_line "\255"));
+  check "reject invalid UTF-8 score" (is_error (Entry.score_of_line "\255"));
+  check "empty answers produce no entry" (create () = Ok None);
   check "only next step"
-    ((get_record (create ~next_step:(Some "相談") ())).next_step = Some "相談");
-  let json = Record.to_json record in
+    ((get_entry (create ~next_step:(Some "相談") ())).next_step = Some "相談");
+  let json = Entry.to_json entry in
   check "JSON round trip"
     (Yojson.Basic.from_string (Yojson.Basic.to_string json) = json);
   let open Yojson.Basic.Util in
@@ -89,22 +89,22 @@ let test_record () =
   check "score is integer" (member "score" json = `Int 4);
   check "unanswered is null" (member "next_step" json = `Null);
   check "JSON Japanese and quotes"
-    (member "accomplishments" json = `String (Option.get record.accomplishments));
+    (member "accomplishments" json = `String (Option.get entry.accomplishments));
   check "JSON backslash and tab"
-    (member "moments" json = `String (Option.get record.moments));
+    (member "moments" json = `String (Option.get entry.moments));
   let epoch = Ptime.epoch in
   check "UTC timestamp"
-    (get (Record.timestamp epoch ~tz_offset_s:0) = "1970-01-01T00:00:00Z");
+    (get (Entry.timestamp epoch ~tz_offset_s:0) = "1970-01-01T00:00:00Z");
   check "positive half-hour offset"
-    (get (Record.timestamp epoch ~tz_offset_s:19800)
+    (get (Entry.timestamp epoch ~tz_offset_s:19800)
     = "1970-01-01T05:30:00+05:30");
   check "negative offset and previous year"
-    (get (Record.timestamp epoch ~tz_offset_s:(-12600))
+    (get (Entry.timestamp epoch ~tz_offset_s:(-12600))
     = "1969-12-31T20:30:00-03:30");
   check "unknown/unrepresentable offset rejected"
-    (is_error (Record.timestamp epoch ~tz_offset_s:1));
+    (is_error (Entry.timestamp epoch ~tz_offset_s:1));
   check "out of range offset rejected"
-    (is_error (Record.timestamp epoch ~tz_offset_s:86400))
+    (is_error (Entry.timestamp epoch ~tz_offset_s:86400))
 
 let test_create () =
   for mask = 0 to 15 do
@@ -115,15 +115,15 @@ let test_create () =
     let next_step = present 8 "相談" in
     match get (create ~score ~accomplishments ~moments ~next_step ()) with
     | None -> check "only all absent is empty" (mask = 0)
-    | Some record ->
+    | Some entry ->
         check "nonempty mask" (mask <> 0);
         check "constructor preserves answers"
-          (record.score = score
-          && record.accomplishments = accomplishments
-          && record.moments = moments
-          && record.next_step = next_step);
+          (entry.score = score
+          && entry.accomplishments = accomplishments
+          && entry.moments = moments
+          && entry.next_step = next_step);
         check "constructor preserves start time"
-          (record.recorded_at = "2026-10-21T18:00:00+09:00")
+          (entry.recorded_at = "2026-10-21T18:00:00+09:00")
   done;
   List.iter
     (fun score ->
@@ -136,14 +136,14 @@ let test_create () =
         (create ~accomplishments:(Some blank) ~moments:(Some blank)
            ~next_step:(Some blank) ()
         = Ok None);
-      let record =
-        get_record
+      let entry =
+        get_entry
           (create ~score:(Some 1) ~accomplishments:(Some blank)
              ~moments:(Some blank) ~next_step:(Some blank) ())
       in
       check "blank text stays absent with a score"
-        (record.accomplishments = None
-        && record.moments = None && record.next_step = None))
+        (entry.accomplishments = None
+        && entry.moments = None && entry.next_step = None))
     [ ""; " \t\r"; "　"; "\194\160\226\128\131" ];
   List.iter
     (fun score ->
@@ -158,21 +158,19 @@ let test_create () =
         ])
     [ None; Some 4 ];
   let text = "　 日本語 \"引用\" \\ \n\t\000 " in
-  let record = get_record (create ~moments:(Some text) ()) in
-  check "constructor preserves nonblank text exactly"
-    (record.moments = Some text);
+  let entry = get_entry (create ~moments:(Some text) ()) in
+  check "constructor preserves nonblank text exactly" (entry.moments = Some text);
   List.iter
     (fun tz_offset_s ->
       check "constructor rejects invalid offset even without answers"
         (is_error (create ~tz_offset_s ())))
     [ min_int; -86400; -1; 1; 86400; max_int ];
   let minimum =
-    get_record
+    get_entry
       (create ~recorded_at:Ptime.min ~tz_offset_s:(-60) ~score:(Some 1) ())
   in
   let maximum =
-    get_record
-      (create ~recorded_at:Ptime.max ~tz_offset_s:60 ~score:(Some 1) ())
+    get_entry (create ~recorded_at:Ptime.max ~tz_offset_s:60 ~score:(Some 1) ())
   in
   check "minimum local date preserves existing UTC fallback"
     (minimum.recorded_at = "0000-01-01T00:00:00Z");
@@ -182,14 +180,14 @@ let test_create () =
 let test_storage () =
   with_directory (fun root ->
       let dir = Filename.concat root "one/two/logs" in
-      let first = get (save dir record) in
+      let first = get (save dir entry) in
       let original = read first in
-      let second = get (save dir record) in
+      let second = get (save dir entry) in
       check "different filenames at same timestamp" (first <> second);
-      check "existing record unchanged" (read first = original);
+      check "existing entry unchanged" (read first = original);
       check "two files" (Array.length (Sys.readdir dir) = 2);
       check "saved JSON"
-        (Yojson.Basic.from_string (read second) = Record.to_json record);
+        (Yojson.Basic.from_string (read second) = Entry.to_json entry);
       check "timestamp in filename"
         (String.starts_with ~prefix:"2026-10-21T18-00-00+09-00-"
            (Filename.basename first));
@@ -199,7 +197,7 @@ let test_storage () =
         Filename.concat dir "2026-10-21T18-00-00+09-00-003.json"
       in
       write collision "preexisting";
-      let fourth = get (save dir record) in
+      let fourth = get (save dir entry) in
       check "preexisting collision skipped" (fourth <> collision);
       check "preexisting collision unchanged" (read collision = "preexisting");
       let file = Filename.concat root "regular-file" in
@@ -207,13 +205,13 @@ let test_storage () =
       let reported = ref false in
       check "file as directory fails"
         (is_error
-           (Storage.save ~dir:file record ~report:(fun _ -> reported := true)));
+           (Storage.save ~dir:file entry ~report:(fun _ -> reported := true)));
       check "failure never reports success" (not !reported);
       check "failed save preserves existing file" (read file = "keep");
       let existing = Filename.concat root "existing" in
       Unix.mkdir existing 0o750;
       let permissions = (Unix.stat existing).st_perm in
-      ignore (get (save existing record));
+      ignore (get (save existing entry));
       check "existing directory permissions unchanged"
         ((Unix.stat existing).st_perm = permissions));
   with_directory (fun root ->
@@ -221,7 +219,7 @@ let test_storage () =
       write existing "original";
       let link = Filename.concat root "2026-10-21T18-00-00+09-00-001.json" in
       Unix.symlink existing link;
-      let saved = get (save root record) in
+      let saved = get (save root entry) in
       check "collision does not follow symlink" (saved <> link);
       check "symlink target unchanged" (read existing = "original"))
 
@@ -235,16 +233,16 @@ let test_git_guard () =
           if marker_is_directory then Unix.mkdir marker 0o700
           else write marker "gitdir: dummy\n";
           let child = Filename.concat repo "new/deep" in
-          check "Git directory rejected" (is_error (save child record));
+          check "Git directory rejected" (is_error (save child entry));
           check "no directories created inside Git repo"
             (not (Sys.file_exists (Filename.concat repo "new")));
           let link = Filename.concat root "link" in
           Unix.symlink repo link;
           check "symlink into Git repo rejected"
-            (is_error (save (Filename.concat link "new") record));
+            (is_error (save (Filename.concat link "new") entry));
           let indirect = Filename.concat root "missing/../repo/new" in
           check "missing components and dot-dot rejected"
-            (is_error (save indirect record));
+            (is_error (save indirect entry));
           check "still no directories inside Git repo"
             (not (Sys.file_exists (Filename.concat repo "new")))))
     [ true; false ]
@@ -267,7 +265,7 @@ let test_bare_git_guard () =
           let reported = ref false in
           check "bare repository rejected"
             (is_error
-               (Storage.save ~dir record ~report:(fun _ -> reported := true)));
+               (Storage.save ~dir entry ~report:(fun _ -> reported := true)));
           check "bare rejection never reports success" (not !reported);
           check "bare repository unchanged"
             (Array.to_list (Sys.readdir repo)
@@ -283,34 +281,34 @@ let test_bare_git_guard () =
       Unix.mkdir ordinary 0o700;
       write (Filename.concat ordinary "HEAD") "ordinary file";
       check "HEAD alone does not reject an ordinary directory"
-        (Result.is_ok (save ordinary record)))
+        (Result.is_ok (save ordinary entry)))
 
 let test_cleanup () =
   with_directory (fun dir ->
       let result =
-        Storage.save ~dir record ~report:(fun _ ->
+        Storage.save ~dir entry ~report:(fun _ ->
             raise (Sys_error "test report failure"))
       in
       check "report failure is error" (is_error result);
-      check "failed report removes this record" (Sys.readdir dir = [||]);
+      check "failed report removes this entry" (Sys.readdir dir = [||]);
       let original_mask = Unix.sigprocmask Unix.SIG_BLOCK [] in
       (try
-         ignore (Storage.save ~dir record ~report:(fun _ -> raise Sys.Break));
+         ignore (Storage.save ~dir entry ~report:(fun _ -> raise Sys.Break));
          failwith "expected cancellation"
        with Sys.Break -> ());
-      check "cancellation after close removes this record"
+      check "cancellation after close removes this entry"
         (Sys.readdir dir = [||]);
       check "signal mask restored"
         (Unix.sigprocmask Unix.SIG_BLOCK [] = original_mask);
-      let existing = get (save dir record) in
+      let existing = get (save dir entry) in
       let contents = read existing in
-      (try ignore (Storage.save ~dir record ~report:(fun _ -> raise Sys.Break))
+      (try ignore (Storage.save ~dir entry ~report:(fun _ -> raise Sys.Break))
        with Sys.Break -> ());
-      check "cancellation preserves older record"
+      check "cancellation preserves older entry"
         (Array.length (Sys.readdir dir) = 1 && read existing = contents))
 
 let () =
-  test_record ();
+  test_entry ();
   test_create ();
   test_storage ();
   test_git_guard ();

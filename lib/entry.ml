@@ -72,14 +72,14 @@ let create ~recorded_at ~tz_offset_s ~score ~accomplishments ~moments ~next_step
   then Ok None
   else Ok (Some { recorded_at; score; accomplishments; moments; next_step })
 
-let to_json record =
+let to_json entry =
   let text = function None -> `Null | Some value -> `String value in
   `Assoc
     [
-      ("recorded_at", `String record.recorded_at);
+      ("recorded_at", `String entry.recorded_at);
       ( "score",
-        match record.score with None -> `Null | Some value -> `Int value );
-      ("accomplishments", text record.accomplishments);
-      ("moments", text record.moments);
-      ("next_step", text record.next_step);
+        match entry.score with None -> `Null | Some value -> `Int value );
+      ("accomplishments", text entry.accomplishments);
+      ("moments", text entry.moments);
+      ("next_step", text entry.next_step);
     ]

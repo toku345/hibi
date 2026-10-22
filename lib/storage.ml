@@ -63,7 +63,7 @@ let with_sigint_blocked action =
       ignore (Unix.sigprocmask Unix.SIG_SETMASK previous);
       raise exn
 
-let save ~dir record ~report =
+let save ~dir entry ~report =
   let created = ref None in
   let output = ref None in
   let cleanup () =
@@ -88,10 +88,10 @@ let save ~dir record ~report =
         Error (reason ^ " / 作成したファイルの削除にも失敗しました: " ^ cleanup_error)
   in
   try
-    let json = Yojson.Basic.pretty_to_string (Record.to_json record) ^ "\n" in
+    let json = Yojson.Basic.pretty_to_string (Entry.to_json entry) ^ "\n" in
     let* dir = prepare_directory dir in
     let* dir = checked_directory dir in
-    let stem = String.map (function ':' -> '-' | c -> c) record.recorded_at in
+    let stem = String.map (function ':' -> '-' | c -> c) entry.recorded_at in
     let rec create suffix =
       let path =
         Filename.concat dir (Printf.sprintf "%s-%03d.json" stem suffix)

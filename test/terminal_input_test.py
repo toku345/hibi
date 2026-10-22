@@ -129,9 +129,9 @@ def edit_case(root, data, expected, model="xterm-256color", **env):
         terminal.send(b"\n")
         terminal.question(3)
         terminal.send(b"\n")
-        records = terminal.finish(0)
-        assert len(records) == 1
-        assert records[0]["accomplishments"] == expected, records
+        entries = terminal.finish(0)
+        assert len(entries) == 1
+        assert entries[0]["accomplishments"] == expected, entries
 
 
 def run(root):

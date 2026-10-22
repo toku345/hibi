@@ -16,7 +16,7 @@ val create :
   next_step:string option ->
   (t option, string) result
 (** 全項目を検証する。空白だけの回答は [None] にし、非空の回答は元の文字列を保持する。 全問未回答なら [Ok None]、保存可能なら
-    [Ok (Some record)]、不正値なら [Error reason] を返す。 *)
+    [Ok (Some entry)]、不正値なら [Error reason] を返す。 *)
 
 val timestamp : Ptime.t -> tz_offset_s:int -> (string, string) result
 val score_of_line : string -> (int option, string) result
