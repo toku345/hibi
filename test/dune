@@ -13,3 +13,10 @@
  (deps terminal_input_test.py)
  (action
   (run python3 %{dep:terminal_input_test.py} %{exe:../bin/main.exe})))
+
+(rule
+ (alias runtest)
+ (deps (glob_files entry_boundary/*.ml))
+ (action
+  (run python3 %{dep:entry_boundary_test.py} %{ocamlc}
+   %{cmi:../lib/hibi} %{cmi:../lib/entry} %{lib:ptime:ptime.cmi})))
