@@ -1,3 +1,4 @@
 open Hibi
 
-let update (entry : Entry.t) = { entry with score = Some 4 }
+let score : int option = Some 4
+let update (entry : Entry.t) = { entry with score }
