@@ -15,8 +15,18 @@
   (run python3 %{dep:terminal_input_test.py} %{exe:../bin/main.exe})))
 
 (rule
- (alias runtest)
- (deps (glob_files entry_boundary/*.ml))
+ (target entry_boundary_ocamlc.sh)
  (action
-  (run python3 %{dep:entry_boundary_test.py} %{ocamlc}
-   %{cmi:../lib/hibi} %{cmi:../lib/entry} %{lib:ptime:ptime.cmi})))
+  (with-stdout-to %{target}
+   (echo
+    "exec \"%{ocamlc}\" -color never -I \"$(dirname \"%{cmi:../lib/hibi}\")\" -I \"$(dirname \"%{cmi:../lib/entry}\")\" -I \"$(dirname \"%{lib:ptime:ptime.cmi}\")\" \"$@\"\n"))))
+
+(cram
+ (applies_to entry_boundary)
+ (deps
+  entry_boundary_ocamlc.sh
+  (glob_files entry_boundary/*.ml)
+  %{ocamlc}
+  %{cmi:../lib/hibi}
+  %{cmi:../lib/entry}
+  %{lib:ptime:ptime.cmi}))
